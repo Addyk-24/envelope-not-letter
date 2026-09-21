@@ -30,7 +30,7 @@ Write-up: [link] · Author: Aditya Katkar
 | null (100 random directions) | 0.514 ± 0.117 |
 | n | 96 unique prompts |
 
-![clean separation](figures/fig1_clean_separation.png)
+![clean separation](results/figures/fig1_clean_separation.png)
 
 ### It collapses against length-matched controls
 
@@ -43,8 +43,8 @@ Write-up: [link] · Author: Aditya Katkar
 n = 20 per rung. **TPR ≈ FPR at every rung** — not graceful degradation with
 subtlety, but no discrimination at any level.
 
-![ladder tpr vs fpr](figures/fig2_ladder_tpr_fpr.png)
-![auroc collapse](figures/fig3_auroc_collapse.png)
+![ladder tpr vs fpr](results/figures/fig2_ladder_tpr_fpr.png)
+![auroc collapse](results/figures/fig3_auroc_collapse.png)
 
 ### The baseline rate is zero
 
@@ -71,7 +71,7 @@ That is the inference: it detects the container, not the content.
 YES/NO). The probe over-fires on format; prompting over-fires on nearly
 everything.
 
-![probe vs prompting](figures/fig4_probe_vs_prompting.png)
+![probe vs prompting](results/figures/fig4_probe_vs_prompting.png)
 
 ---
 
@@ -134,22 +134,34 @@ separate on noise.
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `full_pipeline.py` | end to end: probe, ladder, baseline FPR, prompting, role ablation |
-| `sample_examples.py` | random raw examples + results block (no GPU) |
-| `make_figures.py` | figures from `results_all.npz` |
-| `results_all.npz` | saved arrays: direction, θ₉₀, projections, ablation scores |
+```
+envelope-not-letter/
+├── src/
+│   ├── extract.py              Stage 0: model load, last-token residual extraction + caching
+│   ├── probe.py                Stage 1: contrast pairs, diff-in-means direction, θ₉₀, 5-fold CV, null
+│   ├── implant.py              Stages 2–4: subtlety ladder, ladder results, uninjected FPR
+│   ├── baselines.py            Stages 5–6: zero-shot prompting, speaker-role ablation
+│   └── metrics.py              fig1–4 + results block from results_all.npz (CPU only)
+├── data/
+│   ├── contrast/clean_pairs.json   48 contrast pairs
+│   ├── labels_clean_stage1.npy
+│   └── results_all.npz         direction, θ₉₀, projections, CV AUROCs, ablation scores
+├── activations/                cached layer-16 activations per condition
+└── results/figures/            fig1–fig4
+```
+
+Each stage imports the one before it, so running `baselines.py` runs the
+whole chain (extract → probe → implant → baselines) in order.
 
 ```bash
 pip install torch transformers nnsight scikit-learn scipy numpy matplotlib
-python full_pipeline.py      # ~15 min on 2xT4
-python sample_examples.py    # raw examples, CPU only
-python make_figures.py       # fig1-4
+python src/baselines.py      # full pipeline, ~15 min on 2xT4
+python src/metrics.py        # fig1-4 + results block, CPU only
 ```
 
-`full_pipeline.py` asserts on effective sample size before every extraction.
-If an assert fires, the dataset has collapsed — don't work around it.
+Run from the repo root — every path in the code is relative to it. The
+pipeline asserts on effective sample size before every extraction. If an
+assert fires, the dataset has collapsed — don't work around it.
 
 ---
 
