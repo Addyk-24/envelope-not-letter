@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+metrics.md
+ps_readme.md
+brc-probe-eval.ipynb
+
 # Distribution / packaging
 .Python
 build/
