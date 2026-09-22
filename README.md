@@ -11,9 +11,6 @@ notice or a routine container log.
 
 The probe responds to the block, not what's in it.
 
-September 2026.
-Write-up: [link] · Author: Aditya Katkar
-
 ---
 
 ## Results
