@@ -11,15 +11,6 @@ notice or a routine container log.
 
 The probe responds to the block, not what's in it.
 
-**Follow-up.** Two further experiments locate the mechanism. On format-swapped
-prompts the probe follows format, not framing: casual eval prompts vs formal
-natural prompts give AUROC **0.012**. Removing the brackets changes little, but
-moving the same cue earlier in the conversation drops firing to **0–5%**. The
-probe tracks formal-looking text near the read position.
-
-MATS 12.0 application project (Neel Nanda stream), September 2026.
-Write-up: [link] · Author: Aditya Katkar
-
 ---
 
 ## Results
