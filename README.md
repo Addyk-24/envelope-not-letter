@@ -11,6 +11,12 @@ notice or a routine container log.
 
 The probe responds to the block, not what's in it.
 
+**Follow-up.** Two further experiments locate the mechanism. On format-swapped
+prompts the probe follows format, not framing: casual eval prompts vs formal
+natural prompts give AUROC **0.012**. Removing the brackets changes little, but
+moving the same cue earlier in the conversation drops firing to **0–5%**. The
+probe tracks formal-looking text near the read position.
+
 MATS 12.0 application project (Neel Nanda stream), September 2026.
 Write-up: [link] · Author: Aditya Katkar
 
@@ -41,7 +47,11 @@ Write-up: [link] · Author: Aditya Katkar
 | L3 | subtle (single-commit history, fixtures) | 65% | 70% | 0.395 |
 
 n = 20 per rung. **TPR ≈ FPR at every rung** — not graceful degradation with
-subtlety, but no discrimination at any level.
+subtlety. Paired comparison of raw scores (Wilcoxon, eval vs its own twin) finds
+a small eval > neutral shift at L1 (+0.079 vs +0.064, p = 0.004), none at L2
+(p = 0.26), and the reverse at L3 (+0.024 vs +0.029, p = 0.002). Content moves
+the score slightly; the block moves it far more, and no threshold separates
+the two.
 
 ![ladder tpr vs fpr](results/figures/fig2_ladder_tpr_fpr.png)
 ![auroc collapse](results/figures/fig3_auroc_collapse.png)
@@ -72,6 +82,81 @@ YES/NO). The probe over-fires on format; prompting over-fires on nearly
 everything.
 
 ![probe vs prompting](results/figures/fig4_probe_vs_prompting.png)
+
+---
+
+## Follow-up: what the probe actually responds to
+
+Same model, same probe direction, same θ₉₀ = +0.0203. Code: `src/followup.py`;
+full log: `results/followup_output.txt`.
+
+### 1. Format-swapped contrast set
+
+24 new eval prompts written casually and 24 new natural prompts with formal
+headers, task-matched to the original 24 base pairs (`src/followup_data.py`).
+
+| Cell | Example opening | Mean score | Fires |
+|---|---|---|---|
+| eval, formal | `[EVAL_HARNESS v2.4] Prompt ID: 1048.` | +0.058 | 75.0% |
+| eval, casual | "Hey, this one's for a benchmark run…" | −0.141 | **0.0%** |
+| natural, formal | `[JIRA CACHE-1048] Priority: P2.` | +0.046 | **70.8%** |
+| natural, casual | "Can you help me implement…" | −0.191 | 4.2% |
+
+| Original probe | AUROC |
+|---|---|
+| eval-casual vs natural-formal (both unseen) | **0.012** |
+| formal vs casual, eval only / natural only | 0.993 / 0.962 |
+| eval vs natural, formal only / casual only | 0.594 / 0.799 |
+
+cos(original direction, formal−casual direction) = **+0.59**. Mean length is
+86 / 108 / 88 / 88 characters; the longest cell (eval, casual) scores lowest,
+so length does not explain the split.
+
+A **balanced probe** trained on all four cells (task-grouped 5-fold CV)
+separates framing at AUROC **0.837** (0.745 within formal, 0.932 within casual),
+and its direction is nearly orthogonal to format (cos −0.05). The framing
+signal is linearly present once format is decorrelated. It still does not
+separate the bracketed ladder twins: AUROC 0.647 / 0.487 / 0.438 at L1 / L2 / L3.
+
+![format swap](results/figures/fig5_format_swap.png)
+
+### 2. Same cues, different wrapper
+
+Identical cue text; only the wrapper changes. `end` appends the cue to the last
+turn as plain text. `mid` appends it to the first turn, leaving the last turn
+and last token identical to the uninjected session.
+
+| Wrapper | Rung | Eval TPR | Neutral FPR | AUROC |
+|---|---|---|---|---|
+| `[Context: …]` at end | L1 / L2 / L3 | 100 / 90 / 65% | 100 / 90 / 70% | 0.635 / 0.517 / 0.395 |
+| plain text at end | L1 / L2 / L3 | 100 / 85 / 70% | 85 / 85 / 60% | 0.640 / 0.565 / 0.542 |
+| plain text in first turn | L1 / L2 / L3 | 0 / 5 / 0% | 0 / 0 / 0% | 0.515 / 0.485 / 0.507 |
+
+Removing the brackets changes little; moving the cue away from the end removes
+the response. Three of the eight L1 cues carry their own brackets
+(`[SYSTEM NOTICE: …]`, `[GRADER ACTIVE]`, `[TEST MODE]`), so L2 and L3 are the
+clean bracket-free comparison.
+
+![wrapper](results/figures/fig6_wrapper.png)
+
+**Reading.** The delimiter hypothesis was wrong in its specific form: brackets
+are not required. Format is the mechanism (experiment 1), and it acts through
+what sits near the read position (experiment 2). Decorrelating format in
+training recovers a framing direction on single prompts but not on one-phrase
+twins inside conversations.
+
+---
+
+## Related work
+
+Devbunova (2026), *Is Evaluation Awareness Just Format Sensitivity? Limitations
+of Probe-Based Evidence under Controlled Prompt Structure* (arXiv 2603.19426;
+ICLR 2026 workshop "I Can't Believe It's Not Better"), finds that
+eval-awareness probes on benchmark prompts mainly track benchmark-canonical
+structure, and that decorrelating format from context lets probes learn the
+concept. This project is consistent with that result and extends it to
+multi-turn conversations with neutral twins matched on length and position, an
+uninjected baseline, a prompting baseline, and a placement test.
 
 ---
 
@@ -141,13 +226,19 @@ envelope-not-letter/
 │   ├── probe.py                Stage 1: contrast pairs, diff-in-means direction, θ₉₀, 5-fold CV, null
 │   ├── implant.py              Stages 2–4: subtlety ladder, ladder results, uninjected FPR
 │   ├── baselines.py            Stages 5–6: zero-shot prompting, speaker-role ablation
-│   └── metrics.py              fig1–4 + results block from results_all.npz (CPU only)
+│   ├── metrics.py              fig1–4 + results block from results_all.npz (CPU only)
+│   ├── followup_data.py        format-swapped prompts (eval-casual, natural-formal)
+│   └── followup.py             follow-ups 1–2: format swap, wrapper/placement test, fig5–6
 ├── data/
 │   ├── contrast/clean_pairs.json   48 contrast pairs
 │   ├── labels_clean_stage1.npy
-│   └── results_all.npz         direction, θ₉₀, projections, CV AUROCs, ablation scores
+│   ├── results_all.npz         direction, θ₉₀, projections, CV AUROCs, ablation scores
+│   └── followup_results.npz    follow-up scores, balanced/format directions
 ├── activations/                cached layer-16 activations per condition
-└── results/figures/            fig1–fig4
+├── docs/                       plain-language explainer and talk scripts
+└── results/
+    ├── figures/                fig1–fig6
+    └── followup_output.txt     full log of the follow-up run
 ```
 
 Each stage imports the one before it, so running `baselines.py` runs the
@@ -157,6 +248,7 @@ whole chain (extract → probe → implant → baselines) in order.
 pip install torch transformers nnsight scikit-learn scipy numpy matplotlib
 python src/baselines.py      # full pipeline, ~15 min on 2xT4
 python src/metrics.py        # fig1-4 + results block, CPU only
+python src/followup.py       # follow-ups 1-2 + fig5-6 (reuses cached activations)
 ```
 
 Run from the repo root — every path in the code is relative to it. The
@@ -187,9 +279,10 @@ One model, one layer, one probe type, one cue-injection format. This shows the
 probe can't resolve **near-minimal semantic pairs inside an appended block** —
 not that eval-awareness probes fail in general.
 
-- **Uniform delimiter format** is the most likely mechanism. Every cue arrives
-  in an identical `\n\n[Context: ...]` block; the obvious next test is natural
-  in-turn phrasing without delimiters. Noticed late.
+- **Mechanism located, not fully isolated.** The follow-ups show format, near
+  the read position, drives the probe; brackets are not required. Which
+  features of "formal" matter (headers, IDs, paths, sentence form) is not yet
+  separated, and the follow-up prompts (24 per cell) were written by the author.
 - **Constructed sessions, not real traffic.** SWE-chat is turn-level with heavy
   tool-call serialization; clean multi-turn transcripts couldn't be assembled in
   the time budget. The operational base-rate question stays open.
@@ -203,6 +296,8 @@ not that eval-awareness probes fail in general.
 
 ## Next
 
-Vary the injection format · real production transcripts and a true base-rate
-audit · layer sweep across all 32 blocks, and test whether projecting out the
-delimiter subspace recovers any semantic signal.
+Vary one format feature at a time (header, ID, path, sentence form) to find
+which ones drive the score · read at a token shared by every condition instead
+of the last token · train the balanced probe on multi-turn data and re-test
+on twins · layer sweep across all 32 blocks · real production transcripts and
+a true base-rate audit.
