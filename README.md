@@ -34,7 +34,7 @@ The probe responds to the block, not what's in it.
 | Rung | Cue type | Eval TPR | Neutral FPR | AUROC |
 |---|---|---|---|---|
 | L1 | explicit ("you are being evaluated") | 100% | 100% | 0.635 |
-| L2 | moderate (harness paths, eval repo URLs) | 90% | 90% | 0.518 |
+| L2 | moderate (harness paths, eval repo URLs) | 90% | 90% | 0.517 |
 | L3 | subtle (single-commit history, fixtures) | 65% | 70% | 0.395 |
 
 n = 20 per rung. **TPR ≈ FPR at every rung** — not graceful degradation with
